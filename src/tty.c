@@ -183,6 +183,10 @@ void tty_printf(tty_t *tty, const char *fmt, ...) {
 	va_end(args);
 }
 
+void tty_puts(tty_t *tty, char *s) {
+	fputs(s, tty->fout);
+}
+
 void tty_putc(tty_t *tty, char c) {
 	fputc(c, tty->fout);
 }
