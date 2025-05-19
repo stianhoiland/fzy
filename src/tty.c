@@ -12,6 +12,15 @@
 
 #include "../config.h"
 
+struct tty {
+	int fdin;
+	FILE *fout;
+	struct termios original_termios;
+	int fgcolor;
+	size_t maxwidth;
+	size_t maxheight;
+};
+
 void tty_reset(tty_t *tty) {
 	tcsetattr(tty->fdin, TCSANOW, &tty->original_termios);
 }
@@ -20,13 +29,16 @@ void tty_close(tty_t *tty) {
 	tty_reset(tty);
 	fclose(tty->fout);
 	close(tty->fdin);
+	free(tty);
 }
 
 static void handle_sigwinch(int sig){
 	(void)sig;
 }
 
-void tty_init(tty_t *tty, const char *tty_filename) {
+tty_t *tty_init(const char *tty_filename) {
+	tty_t *tty = malloc(sizeof(*tty));
+
 	tty->fdin = open(tty_filename, O_RDONLY);
 	if (tty->fdin < 0) {
 		perror("Failed to open tty");
@@ -69,6 +81,8 @@ void tty_init(tty_t *tty, const char *tty_filename) {
 	tty_setnormal(tty);
 
 	signal(SIGWINCH, handle_sigwinch);
+
+	return tty;
 }
 
 void tty_getwinsz(tty_t *tty) {
