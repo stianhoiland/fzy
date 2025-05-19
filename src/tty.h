@@ -3,24 +3,16 @@
 
 #include <stddef.h>
 #include <stdio.h>
-#include <termios.h>
 
 #ifdef __cplusplus 
 extern "C" {
 #endif
 
-typedef struct {
-	int fdin;
-	FILE *fout;
-	struct termios original_termios;
-	int fgcolor;
-	size_t maxwidth;
-	size_t maxheight;
-} tty_t;
+typedef struct tty tty_t;
 
 void tty_reset(tty_t *tty);
 void tty_close(tty_t *tty);
-void tty_init(tty_t *tty, const char *tty_filename);
+tty_t *tty_init(const char *tty_filename);
 void tty_getwinsz(tty_t *tty);
 char tty_getchar(tty_t *tty);
 int tty_input_ready(tty_t *tty, long int timeout, int return_on_signal);

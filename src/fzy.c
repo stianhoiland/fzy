@@ -44,8 +44,7 @@ int main(int argc, char *argv[]) {
 		if (isatty(STDIN_FILENO))
 			choices_fread(&choices, stdin, options.input_delimiter);
 
-		tty_t tty;
-		tty_init(&tty, options.tty_filename);
+		tty_t *tty = tty_init(options.tty_filename);
 
 		if (!isatty(STDIN_FILENO))
 			choices_fread(&choices, stdin, options.input_delimiter);
@@ -57,11 +56,11 @@ int main(int argc, char *argv[]) {
 		if (options.show_info)
 			num_lines_adjustment++;
 
-		if (options.num_lines + num_lines_adjustment > tty_getheight(&tty))
-			options.num_lines = tty_getheight(&tty) - num_lines_adjustment;
+		if (options.num_lines + num_lines_adjustment > tty_getheight(tty))
+			options.num_lines = tty_getheight(tty) - num_lines_adjustment;
 
 		tty_interface_t tty_interface;
-		tty_interface_init(&tty_interface, &tty, &choices, &options);
+		tty_interface_init(&tty_interface, tty, &choices, &options);
 		ret = tty_interface_run(&tty_interface);
 	}
 
