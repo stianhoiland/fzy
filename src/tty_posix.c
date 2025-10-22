@@ -175,7 +175,7 @@ void tty_setwrap(tty_t *tty) {
 }
 
 void tty_newline(tty_t *tty) {
-	tty_printf(tty, "%c%cK\n", 0x1b, '[');
+	tty_printf(tty, "\n");
 }
 
 void tty_clearline(tty_t *tty) {

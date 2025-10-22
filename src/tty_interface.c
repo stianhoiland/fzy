@@ -21,6 +21,7 @@ static void clear(tty_interface_t *state) {
 	tty_setcol(tty, 0);
 	size_t line = 0;
 	while (line++ < state->options->num_lines + (state->options->show_info ? 1 : 0)) {
+		tty_clearline(tty);
 		tty_newline(tty);
 	}
 	tty_clearline(tty);
@@ -96,12 +97,13 @@ static void draw(tty_interface_t *state) {
 	tty_clearline(tty);
 
 	if (options->show_info) {
-		tty_printf(tty, "\n[%lu/%lu]", choices->available, choices->size);
+		tty_newline(tty);
+		tty_printf(tty, "[%lu/%lu]", choices->available, choices->size);
 		tty_clearline(tty);
 	}
 
 	for (size_t i = start; i < start + num_lines; i++) {
-		tty_printf(tty, "\n");
+		tty_newline(tty);
 		tty_clearline(tty);
 		const char *choice = choices_get(choices, i);
 		if (choice) {
