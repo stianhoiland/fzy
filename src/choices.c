@@ -3,6 +3,9 @@
 #include <string.h>
 #include <pthread.h>
 #include <unistd.h>
+#ifdef _WIN32
+#include <sysinfoapi.h>
+#endif
 #include <errno.h>
 
 #include "options.h"
@@ -111,7 +114,13 @@ void choices_init(choices_t *c, options_t *options) {
 	if (options->workers) {
 		c->worker_count = options->workers;
 	} else {
+	#ifndef _WIN32
 		c->worker_count = (int)sysconf(_SC_NPROCESSORS_ONLN);
+	#else
+		SYSTEM_INFO si;
+		GetSystemInfo(&si);
+		c->worker_count = si.dwNumberOfProcessors;
+	#endif
 	}
 
 	choices_reset_search(c);

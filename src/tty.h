@@ -38,8 +38,7 @@ void tty_showcursor(tty_t *tty);
 #define TTY_COLOR_NORMAL 9
 
 /* tty_newline
- * Move cursor to the beginning of the next line, clearing to the end of the
- * current line
+ * Move cursor to the beginning of the next line.
  */
 void tty_newline(tty_t *tty);
 
