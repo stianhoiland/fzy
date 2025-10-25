@@ -160,6 +160,14 @@ void tty_setwrap(tty_t *tty) {
 	tty_printf(tty, "%c%c?7h", 0x1b, '[');
 }
 
+void tty_hidecursor(tty_t *tty) {
+  tty_printf(tty, "\x1b[" "?25l");
+}
+
+void tty_showcursor(tty_t *tty) {
+  tty_printf(tty, "\x1b[" "?25h");
+}
+
 void tty_newline(tty_t *tty) {
 	tty_printf(tty, "%c%cK\n", 0x1b, '[');
 }
