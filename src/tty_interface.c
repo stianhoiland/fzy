@@ -91,6 +91,7 @@ static void draw(tty_interface_t *state) {
 		}
 	}
 
+	tty_hidecursor(tty);
 	tty_setcol(tty, 0);
 	tty_printf(tty, "%s%s", options->prompt, state->search);
 	tty_clearline(tty);
@@ -102,11 +103,11 @@ static void draw(tty_interface_t *state) {
 
 	for (size_t i = start; i < start + num_lines; i++) {
 		tty_printf(tty, "\n");
-		tty_clearline(tty);
 		const char *choice = choices_get(choices, i);
 		if (choice) {
 			draw_match(state, choice, i == choices->selection);
 		}
+		tty_clearline(tty);
 	}
 
 	if (num_lines + options->show_info)
@@ -117,6 +118,7 @@ static void draw(tty_interface_t *state) {
 	for (size_t i = 0; i < state->cursor; i++)
 		fputc(state->search[i], tty->fout);
 	tty_flush(tty);
+	tty_showcursor(tty);
 }
 
 static void update_search(tty_interface_t *state) {

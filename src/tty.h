@@ -32,6 +32,9 @@ void tty_setnormal(tty_t *tty);
 void tty_setnowrap(tty_t *tty);
 void tty_setwrap(tty_t *tty);
 
+void tty_hidecursor(tty_t *tty);
+void tty_showcursor(tty_t *tty);
+
 #define TTY_COLOR_BLACK 0
 #define TTY_COLOR_RED 1
 #define TTY_COLOR_GREEN 2
