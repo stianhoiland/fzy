@@ -1,3 +1,15 @@
+## Stian's fzy fork
+
+A fork of the best UNIX philosophy fuzzy finder: 🔍 fzy
+
+Changes:
+- Native Windows support ([#200](https://github.com/jhawthorn/fzy/pull/200))
+- Fix screen and cursor flickers ([#201](https://github.com/jhawthorn/fzy/pull/201))
+
+Upstream readme follows.
+
+---
+
 ![fzy](http://i.hawth.ca/u/fzy-github.svg)
 
 **fzy** is a fast, simple fuzzy text selector for the terminal with an advanced scoring algorithm.
