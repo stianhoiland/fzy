@@ -117,8 +117,8 @@ static void draw(tty_interface_t *state) {
 	fputs(options->prompt, tty->fout);
 	for (size_t i = 0; i < state->cursor; i++)
 		fputc(state->search[i], tty->fout);
-	tty_flush(tty);
 	tty_showcursor(tty);
+	tty_flush(tty);
 }
 
 static void update_search(tty_interface_t *state) {
