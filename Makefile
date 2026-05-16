@@ -1,4 +1,4 @@
-VERSION=1.1
+VERSION=2.0-beta
 
 CPPFLAGS=-DVERSION=\"${VERSION}\" -D_GNU_SOURCE
 CFLAGS+=-MD -Wall -Wextra -g -std=c99 -O3 -pedantic -Ideps -Werror=vla
@@ -60,6 +60,9 @@ clean:
 veryclean: clean
 	rm -f config.h
 
-.PHONY: test check all clean veryclean install fmt acceptance
+debug: fzy
+	gdb ./fzy.exe
+
+.PHONY: test check all clean veryclean debug install fmt acceptance
 
 -include $(OBJECTS:.o=.d)

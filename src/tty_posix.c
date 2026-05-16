@@ -36,6 +36,10 @@ static void handle_sigwinch(int sig){
 	(void)sig;
 }
 
+static void handle_sigint(int sig){
+	exit(EXIT_FAILURE);
+}
+
 tty_t *tty_init(const char *tty_filename) {
 	tty_t *tty = malloc(sizeof(*tty));
 
@@ -67,11 +71,10 @@ tty_t *tty_init(const char *tty_filename) {
 	 * Disable all of
 	 * ICANON  Canonical input (erase and kill processing).
 	 * ECHO    Echo.
-	 * ISIG    Signals from control characters
 	 * ICRNL   Conversion of CR characters into NL
 	 */
 	new_termios.c_iflag &= ~(ICRNL);
-	new_termios.c_lflag &= ~(ICANON | ECHO | ISIG);
+	new_termios.c_lflag &= ~(ICANON | ECHO);
 
 	if (tcsetattr(tty->fdin, TCSANOW, &new_termios))
 		perror("tcsetattr");
@@ -81,6 +84,7 @@ tty_t *tty_init(const char *tty_filename) {
 	tty_setnormal(tty);
 
 	signal(SIGWINCH, handle_sigwinch);
+	signal(SIGINT, handle_sigint);
 
 	return tty;
 }
@@ -143,7 +147,7 @@ int tty_input_ready(tty_t *tty, long int timeout, int return_on_signal) {
 }
 
 static void tty_sgr(tty_t *tty, int code) {
-	tty_printf(tty, "%c%c%im", 0x1b, '[', code);
+	tty_printf(tty, "\x1b[" "%im", code);
 }
 
 void tty_setfg(tty_t *tty, int fg) {
@@ -171,35 +175,35 @@ void tty_setnormal(tty_t *tty) {
 }
 
 void tty_setnowrap(tty_t *tty) {
-	tty_printf(tty, "%c%c?7l", 0x1b, '[');
+	tty_fputs(tty, "\x1b[" "?7l");
 }
 
 void tty_setwrap(tty_t *tty) {
-	tty_printf(tty, "%c%c?7h", 0x1b, '[');
+	tty_fputs(tty, "\x1b[" "?7h");
 }
 
 void tty_hidecursor(tty_t *tty) {
-  tty_printf(tty, "\x1b[" "?25l");
+	tty_fputs(tty, "\x1b[" "?25l");
 }
 
 void tty_showcursor(tty_t *tty) {
-  tty_printf(tty, "\x1b[" "?25h");
+	tty_fputs(tty, "\x1b[" "?25h");
 }
 
 void tty_newline(tty_t *tty) {
-	tty_printf(tty, "\n");
+	tty_fputs(tty, "\n");
 }
 
 void tty_clearline(tty_t *tty) {
-	tty_printf(tty, "%c%cK", 0x1b, '[');
+	tty_fputs(tty, "\x1b[" "K");
 }
 
 void tty_setcol(tty_t *tty, int col) {
-	tty_printf(tty, "%c%c%iG", 0x1b, '[', col + 1);
+	tty_printf(tty, "\x1b[" "%iG", col + 1);
 }
 
 void tty_moveup(tty_t *tty, int i) {
-	tty_printf(tty, "%c%c%iA", 0x1b, '[', i);
+	tty_printf(tty, "\x1b[" "%iA", i);
 }
 
 void tty_printf(tty_t *tty, const char *fmt, ...) {
@@ -209,7 +213,7 @@ void tty_printf(tty_t *tty, const char *fmt, ...) {
 	va_end(args);
 }
 
-void tty_puts(tty_t *tty, char *s) {
+void tty_fputs(tty_t *tty, const char *s) {
 	fputs(s, tty->fout);
 }
 

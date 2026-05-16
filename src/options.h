@@ -17,6 +17,13 @@ typedef struct {
 	unsigned int workers;
 	char input_delimiter;
 	int show_info;
+	int clear_choices;
+	int sort_matches;
+	int fuzzy_search;
+	int highlight_matches;
+	int multi_select;
+	int enter_clears;
+	const char *preselection;
 } options_t;
 
 void options_init(options_t *options);

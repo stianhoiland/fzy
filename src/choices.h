@@ -7,9 +7,14 @@
 #include "match.h"
 #include "options.h"
 
-#ifdef __cplusplus 
+#ifdef __cplusplus
 extern "C" {
 #endif
+
+typedef enum search_options {
+	SEARCH_FUZZY  = 1 << 0,
+	SEARCH_SORT   = 1 << 1,
+} search_options_t;
 
 struct scored_result {
 	score_t score;
@@ -22,6 +27,8 @@ typedef struct {
 
 	size_t capacity;
 	size_t size;
+
+	search_options_t search_options;
 
 	const char **strings;
 	struct scored_result *results;
@@ -45,6 +52,7 @@ void choices_destroy(choices_t *c);
 void choices_add(choices_t *c, const char *choice);
 void choices_select(choices_t *c, const char *choice);
 void choices_deselect(choices_t *c, const char *choice);
+void choices_select_all(choices_t *c);
 bool choices_selected(choices_t *c, const char *choice);
 size_t choices_available(choices_t *c);
 void choices_search(choices_t *c, const char *search);
@@ -53,7 +61,7 @@ score_t choices_getscore(choices_t *c, size_t n);
 void choices_prev(choices_t *c);
 void choices_next(choices_t *c);
 
-#ifdef __cplusplus 
+#ifdef __cplusplus
 }
 #endif
 

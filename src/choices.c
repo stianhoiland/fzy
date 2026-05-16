@@ -114,12 +114,20 @@ void choices_init(choices_t *c, options_t *options) {
 	c->results = NULL;
 	c->selections.strings = NULL;
 	c->selections.capacity = c->selections.size = 0;
+	choices_resize_selections(c, INITIAL_SELECTIONS_CAPACITY);
 
 	c->buffer_size = 0;
 	c->buffer = NULL;
 
 	c->capacity = c->size = 0;
 	choices_resize(c, INITIAL_CHOICE_CAPACITY);
+
+	if (options->sort_matches) {
+		c->search_options |= SEARCH_SORT;
+	}
+	if (options->fuzzy_search) {
+		c->search_options |= SEARCH_FUZZY;
+	}
 
 	if (options->workers) {
 		c->worker_count = options->workers;
@@ -166,11 +174,7 @@ void choices_add(choices_t *c, const char *choice) {
 
 void choices_select(choices_t *c, const char *choice) {
 	if (c->selections.size == c->selections.capacity) {
-		if (c->selections.capacity == 0) {
-			choices_resize_selections(c, INITIAL_SELECTIONS_CAPACITY);
-		} else {
-			choices_resize_selections(c, c->selections.capacity * 2);
-		}
+		choices_resize_selections(c, c->selections.capacity * 2);
 	}
 
 	if (!choices_selected(c, choice)) {
@@ -190,6 +194,34 @@ void choices_deselect(choices_t *c, const char *choice) {
 
 	for (size_t i = index; i < c->selections.size; i++) {
 		c->selections.strings[i] = c->selections.strings[i+1];
+	}
+}
+
+void choices_select_all(choices_t *c) {
+	size_t selections = 0;
+	for (size_t i = 0; i < c->available; i++) {
+		const char *choice = choices_get(c, i);
+		if (choice) {
+			if (choices_selected(c, choice)) {
+				selections++;
+			}
+		}
+	}
+
+	if (selections < c->available) {
+		for (size_t i = 0; i < c->available; i++) {
+			const char *choice = choices_get(c, i);
+			if (choice) {
+				choices_select(c, choice);
+			}
+		}
+	} else {
+		for (size_t i = 0; i < c->available; i++) {
+			const char *choice = choices_get(c, i);
+			if (choice) {
+				choices_deselect(c, choice);
+			}
+		}
 	}
 }
 
@@ -275,7 +307,7 @@ static struct result_list merge2(struct result_list list1, struct result_list li
 	return result;
 }
 
-static void *choices_search_worker(void *data) {
+static void *choices_search_worker_fuzzy_sort(void *data) {
 	struct worker *w = (struct worker *)data;
 	struct search_job *job = w->job;
 	const choices_t *c = job->choices;
@@ -291,7 +323,7 @@ static void *choices_search_worker(void *data) {
 		}
 
 		for(size_t i = start; i < end; i++) {
-			if (has_match(job->search, c->strings[i])) {
+			if (has_match_fuzzy(job->search, c->strings[i])) {
 				result->list[result->size].str = c->strings[i];
 				result->list[result->size].score = match(job->search, c->strings[i]);
 				result->size++;
@@ -301,6 +333,139 @@ static void *choices_search_worker(void *data) {
 
 	/* Sort the partial result */
 	qsort(result->list, result->size, sizeof(struct scored_result), cmpchoice);
+
+	/* Fan-in, merging results */
+	for(unsigned int step = 0;; step++) {
+		if (w->worker_num % (2 << step))
+			break;
+
+		unsigned int next_worker = w->worker_num | (1 << step);
+		if (next_worker >= c->worker_count)
+			break;
+
+		if ((errno = pthread_join(job->workers[next_worker].thread_id, NULL))) {
+			perror("pthread_join");
+			exit(EXIT_FAILURE);
+		}
+
+		w->result = merge2(w->result, job->workers[next_worker].result);
+	}
+
+	return NULL;
+}
+
+static void *choices_search_worker_fuzzy_nosort(void *data) {
+	struct worker *w = (struct worker *)data;
+	struct search_job *job = w->job;
+	const choices_t *c = job->choices;
+	struct result_list *result = &w->result;
+
+	size_t start, end;
+
+	for(;;) {
+		worker_get_next_batch(job, &start, &end);
+
+		if(start == end) {
+			break;
+		}
+
+		for(size_t i = start; i < end; i++) {
+			if (has_match_fuzzy(job->search, c->strings[i])) {
+				result->list[result->size].str = c->strings[i];
+				result->list[result->size].score = SCORE_MIN;
+				result->size++;
+			}
+		}
+	}
+
+	/* Fan-in, merging results */
+	for(unsigned int step = 0;; step++) {
+		if (w->worker_num % (2 << step))
+			break;
+
+		unsigned int next_worker = w->worker_num | (1 << step);
+		if (next_worker >= c->worker_count)
+			break;
+
+		if ((errno = pthread_join(job->workers[next_worker].thread_id, NULL))) {
+			perror("pthread_join");
+			exit(EXIT_FAILURE);
+		}
+
+		w->result = merge2(w->result, job->workers[next_worker].result);
+	}
+
+	return NULL;
+}
+static void *choices_search_worker_linear_sort(void *data) {
+	struct worker *w = (struct worker *)data;
+	struct search_job *job = w->job;
+	const choices_t *c = job->choices;
+	struct result_list *result = &w->result;
+
+	size_t start, end;
+
+	for(;;) {
+		worker_get_next_batch(job, &start, &end);
+
+		if(start == end) {
+			break;
+		}
+
+		for(size_t i = start; i < end; i++) {
+			if (has_match_linear(job->search, c->strings[i])) {
+				result->list[result->size].str = c->strings[i];
+				result->list[result->size].score = match(job->search, c->strings[i]);
+				result->size++;
+			}
+		}
+	}
+
+	/* Sort the partial result */
+	qsort(result->list, result->size, sizeof(struct scored_result), cmpchoice);
+
+	/* Fan-in, merging results */
+	for(unsigned int step = 0;; step++) {
+		if (w->worker_num % (2 << step))
+			break;
+
+		unsigned int next_worker = w->worker_num | (1 << step);
+		if (next_worker >= c->worker_count)
+			break;
+
+		if ((errno = pthread_join(job->workers[next_worker].thread_id, NULL))) {
+			perror("pthread_join");
+			exit(EXIT_FAILURE);
+		}
+
+		w->result = merge2(w->result, job->workers[next_worker].result);
+	}
+
+	return NULL;
+}
+static void *choices_search_worker_linear_nosort(void *data) {
+	struct worker *w = (struct worker *)data;
+	struct search_job *job = w->job;
+	const choices_t *c = job->choices;
+	struct result_list *result = &w->result;
+
+	size_t start, end;
+
+	for(;;) {
+		worker_get_next_batch(job, &start, &end);
+
+		if(start == end) {
+			break;
+		}
+
+		for(size_t i = start; i < end; i++) {
+			if (has_match_linear(job->search, c->strings[i])) {
+				result->list[result->size].str = c->strings[i];
+				result->list[result->size].score = SCORE_MIN;
+				result->size++;
+			}
+		}
+	}
 
 	/* Fan-in, merging results */
 	for(unsigned int step = 0;; step++) {
@@ -342,6 +507,17 @@ void choices_search(choices_t *c, const char *search) {
 		abort();
 	}
 
+	void *(*choices_search_worker)(void *) = NULL;
+	if (c->search_options & SEARCH_FUZZY && c->search_options & SEARCH_SORT) {
+		choices_search_worker = choices_search_worker_fuzzy_sort;
+	} else if (c->search_options & SEARCH_FUZZY) {
+		choices_search_worker = choices_search_worker_fuzzy_nosort;
+	} else if (c->search_options & SEARCH_SORT) {
+		choices_search_worker = choices_search_worker_linear_sort;
+	} else {
+		choices_search_worker = choices_search_worker_linear_nosort;
+	}
+
 	struct worker *workers = job->workers;
 	for (int i = c->worker_count - 1; i >= 0; i--) {
 		workers[i].job = job;
@@ -354,7 +530,7 @@ void choices_search(choices_t *c, const char *search) {
 		}
 
 		/* These must be created last-to-first to avoid a race condition when fanning in */
-		if ((errno = pthread_create(&workers[i].thread_id, NULL, &choices_search_worker, &workers[i]))) {
+		if ((errno = pthread_create(&workers[i].thread_id, NULL, choices_search_worker, &workers[i]))) {
 			perror("pthread_create");
 			exit(EXIT_FAILURE);
 		}

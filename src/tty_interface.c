@@ -17,17 +17,28 @@ static int is_boundary(char c) {
 
 static void clear(tty_interface_t *state) {
 	tty_t *tty = state->tty;
+	options_t *options = state->options;
 
+	tty_hidecursor(tty);
 	tty_setcol(tty, 0);
-	size_t line = 0;
-	while (line++ < state->options->num_lines + (state->options->show_info ? 1 : 0)) {
+	if (options->clear_choices) {
+		size_t line = 0;
+		while (line++ < state->options->num_lines + (state->options->show_info ? 1 : 0)) {
+			tty_clearline(tty);
+			tty_newline(tty);
+		}
 		tty_clearline(tty);
+		if (state->options->num_lines > 0) {
+			tty_moveup(tty, line - 1);
+		}
+	} else {
+		size_t line = 0;
+		while (line++ < state->options->num_lines + (state->options->show_info ? 1 : 0)) {
+			tty_newline(tty);
+		}
 		tty_newline(tty);
 	}
-	tty_clearline(tty);
-	if (state->options->num_lines > 0) {
-		tty_moveup(tty, line - 1);
-	}
+	tty_showcursor(tty);
 	tty_flush(tty);
 }
 
@@ -41,40 +52,74 @@ static void draw_match(tty_interface_t *state, const char *choice, int selected)
 	for (int i = 0; i < n + 1 && i < MATCH_MAX_LEN; i++)
 		positions[i] = -1;
 
-	score_t score = match_positions(search, choice, &positions[0]);
+
+	score_t score;
+	if (options->show_scores || options->highlight_matches) {
+		score = match_positions(search, choice, &positions[0]);
+	}
 
 	if (options->show_scores) {
 		if (score == SCORE_MIN) {
-			tty_printf(tty, "(     ) ");
+			tty_fputs(tty, "(     ) ");
 		} else {
 			tty_printf(tty, "(%5.2f) ", score);
 		}
 	}
 
-	if (choices_selected(state->choices, choice)) {
-		tty_setbold(tty);
-	}
-
-	if (selected)
-#ifdef TTY_SELECTION_UNDERLINE
-		tty_setunderline(tty);
-#else
-		tty_setinvert(tty);
-#endif
-
-	tty_setnowrap(tty);
-	for (size_t i = 0, p = 0; choice[i] != '\0'; i++) {
-		if (positions[p] == i) {
-			tty_setfg(tty, TTY_COLOR_HIGHLIGHT);
-			p++;
-		} else {
-			tty_setfg(tty, TTY_COLOR_NORMAL);
-		}
-		if (choice[i] == '\n') {
+	if (options->multi_select) {
+		if (selected) {
+			// cursor
+			// eh, not really? This define doesn't really make sense for
+			// the '>' multi-select caret
+			#ifdef TTY_SELECTION_UNDERLINE
+			tty_setunderline(tty);
+			#else
+			tty_setinvert(tty);
+			#endif
+			tty_putc(tty, '>');
+			tty_setnormal(tty);
 			tty_putc(tty, ' ');
 		} else {
-			tty_printf(tty, "%c", choice[i]);
+			tty_fputs(tty, "  ");
 		}
+
+		if (choices_selected(state->choices, choice)) {
+			// multi-selections
+			#ifdef TTY_SELECTION_UNDERLINE
+			tty_setunderline(tty);
+			#else
+			tty_setinvert(tty);
+			#endif
+		}
+	} else {
+		if (selected) {
+			// cursor
+			#ifdef TTY_SELECTION_UNDERLINE
+			tty_setunderline(tty);
+			#else
+			tty_setinvert(tty);
+			#endif
+		}
+	}
+
+	tty_setnowrap(tty);
+	if (options->highlight_matches) {
+		score_t score = match_positions(search, choice, &positions[0]);
+		for (size_t i = 0, p = 0; choice[i] != '\0'; i++) {
+			if (positions[p] == i) {
+				tty_setfg(tty, TTY_COLOR_HIGHLIGHT);
+				p++;
+			} else {
+				tty_setfg(tty, TTY_COLOR_NORMAL);
+			}
+			if (choice[i] == '\n') {
+				tty_putc(tty, ' ');
+			} else {
+				tty_putc(tty, choice[i]);
+			}
+		}
+	} else {
+		tty_fputs(tty, choice);
 	}
 	tty_setwrap(tty);
 	tty_setnormal(tty);
@@ -96,9 +141,22 @@ static void draw(tty_interface_t *state) {
 		}
 	}
 
+	size_t available = choices_available(choices);
+
 	tty_hidecursor(tty);
 	tty_setcol(tty, 0);
-	tty_printf(tty, "%s%s", options->prompt, state->search);
+	tty_fputs(tty, options->prompt);
+	if (!available && !options->enter_clears) {
+		#ifdef TTY_SELECTION_UNDERLINE
+		tty_setunderline(tty);
+		#else
+		tty_setinvert(tty);
+		#endif
+		tty_fputs(tty, state->search);
+		tty_setnormal(tty);
+	} else {
+		tty_fputs(tty, state->search);
+	}
 	tty_clearline(tty);
 
 	if (options->show_info) {
@@ -119,12 +177,9 @@ static void draw(tty_interface_t *state) {
 	if (num_lines + options->show_info)
 		tty_moveup(tty, num_lines + options->show_info);
 
-	tty_setcol(tty, 0);
-	tty_puts(tty, options->prompt);
-	for (size_t i = 0; i < state->cursor; i++)
-		tty_putc(tty, state->search[i]);
-	tty_flush(tty);
+	tty_setcol(tty, strlen(options->prompt) + state->cursor);
 	tty_showcursor(tty);
+	tty_flush(tty);
 }
 
 static void update_search(tty_interface_t *state) {
@@ -139,7 +194,22 @@ static void update_state(tty_interface_t *state) {
 	}
 }
 
-static void action_select(tty_interface_t *state) {
+static void action_select_toggle(tty_interface_t *state) {
+	const char *selection = choices_get(state->choices, state->choices->selection);
+	if (selection) {
+		if (choices_selected(state->choices, selection)) {
+			choices_deselect(state->choices, selection);
+		} else {
+			choices_select(state->choices, selection);
+		}
+	}
+}
+
+static void action_select_down(tty_interface_t *state) {
+	options_t *options = state->options;
+	if (!options->multi_select) {
+		return;
+	}
 	update_state(state);
 
 	const char *selection = choices_get(state->choices, state->choices->selection);
@@ -153,7 +223,41 @@ static void action_select(tty_interface_t *state) {
 	}
 }
 
+static void action_select_up(tty_interface_t *state) {
+	options_t *options = state->options;
+	if (!options->multi_select) {
+		return;
+	}
+	update_state(state);
+
+	choices_prev(state->choices);
+	const char *selection = choices_get(state->choices, state->choices->selection);
+	if (selection) {
+		if (choices_selected(state->choices, selection)) {
+			choices_deselect(state->choices, selection);
+		} else {
+			choices_select(state->choices, selection);
+		}
+	}
+}
+
+static void action_select_all(tty_interface_t *state) {
+	options_t *options = state->options;
+	if (!options->multi_select) {
+		return;
+	}
+	update_state(state);
+	choices_select_all(state->choices);
+}
+static void action_del_all(tty_interface_t *state);
 static void action_emit(tty_interface_t *state) {
+	if (state->options->enter_clears && strlen(state->search)) {
+		action_select_toggle(state);
+		action_del_all(state);
+		update_state(state);
+		return;
+	}
+
 	update_state(state);
 
 	/* Reset the tty as close as possible to the previous state */
@@ -162,20 +266,22 @@ static void action_emit(tty_interface_t *state) {
 	/* ttyout should be flushed before outputting on stdout */
 	tty_close(state->tty);
 
+	/* Output all choices */
+	for (size_t i = 0; i < state->choices->selections.size; i++) {
+		printf("%s\n", state->choices->selections.strings[i]);
+	}
 	/* If no choices were selected with multi-select, use the choice under
 	 * the cursor */
 	if (!state->choices->selections.size) {
 		const char *selection = choices_get(state->choices, state->choices->selection);
 		if (selection) {
+			/* output the key sequence */
+			//printf("\"%s\" ", state->input);
 			/* output the result */
 			printf("%s\n", selection);
 		} else {
 			/* No match, output the query instead */
 			printf("%s\n", state->search);
-		}
-	} else {
-		for (size_t i = 0; i < state->choices->selections.size; i++) {
-			printf("%s\n", state->choices->selections.strings[i]);
 		}
 	}
 
@@ -196,6 +302,13 @@ static void action_del_char(tty_interface_t *state) {
 	memmove(&state->search[state->cursor], &state->search[original_cursor], length - original_cursor + 1);
 }
 
+static void action_del_char_right(tty_interface_t *state) {
+	size_t length = strlen(state->search);
+	if (state->cursor < length) {
+		memmove(&state->search[state->cursor], &state->search[state->cursor + 1], length - state->cursor + 1);
+	}
+}
+
 static void action_del_word(tty_interface_t *state) {
 	size_t original_cursor = state->cursor;
 	size_t cursor = state->cursor;
@@ -208,6 +321,23 @@ static void action_del_word(tty_interface_t *state) {
 
 	memmove(&state->search[cursor], &state->search[original_cursor], strlen(state->search) - original_cursor + 1);
 	state->cursor = cursor;
+}
+
+static void action_del_word_right(tty_interface_t *state) {
+	size_t original_cursor = state->cursor;
+	size_t cursor = state->cursor;
+	size_t length = strlen(state->search);
+
+	while (cursor && cursor < length && isspace(state->search[cursor + 1]))
+		cursor++;
+
+	while (cursor && cursor < length && !isspace(state->search[cursor + 1]))
+		cursor++;
+
+	// What the ever-living fuck
+	ssize_t rest = length - cursor;
+	if (rest > 0)
+		memmove(&state->search[original_cursor], &state->search[cursor + 1], length - cursor + 1);
 }
 
 static void action_del_all(tty_interface_t *state) {
@@ -237,12 +367,27 @@ static void action_left(tty_interface_t *state) {
 	}
 }
 
+static void action_left_word(tty_interface_t *state) {
+	while (state->cursor && isspace(state->search[state->cursor - 1]))
+		state->cursor--;
+	while (state->cursor && !isspace(state->search[state->cursor - 1]))
+		state->cursor--;
+}
+
 static void action_right(tty_interface_t *state) {
 	if (state->cursor < strlen(state->search)) {
 		state->cursor++;
 		while (!is_boundary(state->search[state->cursor]))
 			state->cursor++;
 	}
+}
+
+static void action_right_word(tty_interface_t *state) {
+	size_t length = strlen(state->search);
+	while (state->cursor < length && isspace(state->search[state->cursor + 1]))
+		state->cursor++;
+	while (state->cursor < length && !isspace(state->search[state->cursor + 1]))
+		state->cursor++;
 }
 
 static void action_beginning(tty_interface_t *state) {
@@ -292,6 +437,8 @@ static void append_search(tty_interface_t *state, char ch) {
 	}
 }
 
+//#include "memmem.c"
+
 void tty_interface_init(tty_interface_t *state, tty_t *tty, choices_t *choices, options_t *options) {
 	state->tty = tty;
 	state->choices = choices;
@@ -311,6 +458,35 @@ void tty_interface_init(tty_interface_t *state, tty_t *tty, choices_t *choices, 
 	state->cursor = strlen(state->search);
 
 	update_search(state);
+
+	//size_t len = strlen(options->preselection);
+
+	for (size_t i = 0; i < choices->available; i++) {
+		const char *choice = choices_get(choices, i);
+		//fprintf(stderr, "comparing %s vs %s\n", choice, options->preselection);
+		if (!has_exact_linear(choice, options->preselection)) {
+		//if (!strcmp(choice, options->preselection)) {
+			break;
+		} else {
+			choices_next(choices);
+		}
+	}
+
+	/*
+	// TODO: memmem matches any leading substring of 'preselection'
+	const char *match = NULL;
+	if (len && (match = memmem(choices->buffer, choices->buffer_size, options->preselection, len))) {
+		choices_select(choices, match);
+		for (size_t i = 0; i < choices->available; i++) {
+			const char *choice = choices_get(choices, i);
+			if (choice != match) {
+				choices_next(choices);
+			} else {
+				break;
+			}
+		}
+	}
+	*/
 }
 
 typedef struct {
@@ -323,21 +499,24 @@ typedef struct {
 static const keybinding_t keybindings[] = {{"\x1b", action_exit},       /* ESC */
 					   {"\x7f", action_del_char},	/* DEL */
 
-					   {KEY_CTRL('H'), action_del_char}, /* Backspace (C-H) */
+					   {KEY_CTRL('H'), action_del_word}, /* Backspace (C-H) */
 					   {KEY_CTRL('W'), action_del_word}, /* C-W */
 					   {KEY_CTRL('U'), action_del_all},  /* C-U */
-					   {KEY_CTRL('I'), action_autocomplete}, /* TAB (C-I ) */
+					   {KEY_CTRL('I'), action_select_down},   /* Tab (C-I) */
+					   {"\x1b[Z",      action_select_up}, /* Sh-Tab */
 					   {KEY_CTRL('C'), action_exit},	 /* C-C */
 					   {KEY_CTRL('D'), action_exit},	 /* C-D */
 					   {KEY_CTRL('G'), action_exit},	 /* C-G */
-					   {KEY_CTRL('M'), action_emit},	 /* CR */
-					   {KEY_CTRL('T'), action_select},	 /* C-T */
+					   {KEY_CTRL('M'), action_emit},	 /* Enter (CR) */
+					   {KEY_CTRL('T'), action_select_down},	 /* C-T */
 					   {KEY_CTRL('P'), action_prev},	 /* C-P */
 					   {KEY_CTRL('N'), action_next},	 /* C-N */
 					   {KEY_CTRL('K'), action_prev},	 /* C-K */
 					   {KEY_CTRL('J'), action_next},	 /* C-J */
-					   {KEY_CTRL('A'), action_beginning},    /* C-A */
+					   //{KEY_CTRL('A'), action_beginning},    /* C-A */
 					   {KEY_CTRL('E'), action_end},		 /* C-E */
+   					   {KEY_CTRL('A'), action_select_all},		 /* C-A */
+
 
 					   {"\x1bOD", action_left}, /* LEFT */
 					   {"\x1b[D", action_left}, /* LEFT */
@@ -351,6 +530,14 @@ static const keybinding_t keybindings[] = {{"\x1b", action_exit},       /* ESC *
 					   {"\x1bOA", action_prev}, /* UP */
 					   {"\x1b[B", action_next}, /* DOWN */
 					   {"\x1bOB", action_next}, /* DOWN */
+
+					   {"\x1b[1;2A", action_select_up}, /* Sh-UP */
+   					   {"\x1b[1;2B", action_select_down}, /* Sh-DOWN */
+
+					   {"\x1b[3~", action_del_char_right}, /* DELETE */
+					   {"\x1b[3;5~", action_del_word_right}, /* DELETE ? */
+					   {"\x1b[1;5D", action_left_word}, /* CTRL-LEFT */
+					   {"\x1b[1;5C", action_right_word}, /* CTRL-RIGHT */
 					   {"\x1b[5~", action_pageup},
 					   {"\x1b[6~", action_pagedown},
 					   {"\x1b[200~", action_ignore},

@@ -40,6 +40,14 @@ static void handle_sigwinch(int sig){
 	(void)sig;
 }
 
+BOOL consoleHandler(DWORD signal){
+    if (signal == CTRL_C_EVENT){
+    	fprintf(stderr, "YO WE GOT CTRL_C_EVENT");
+    	exit(1);
+    }
+    return TRUE;
+}
+
 tty_t *tty_init(const char *tty_filename) {
 	tty_t *tty = malloc(sizeof(*tty));
 
@@ -91,6 +99,7 @@ tty_t *tty_init(const char *tty_filename) {
 	tty_setnormal(tty);
 
 	//signal(SIGWINCH, handle_sigwinch);
+	SetConsoleCtrlHandler(consoleHandler, TRUE); // (PHANDLER_ROUTINE)
 
 	return tty;
 }
@@ -124,71 +133,71 @@ int tty_input_ready(tty_t *tty, long int timeout, int return_on_signal) {
 	return WaitForSingleObject(tty->hin, timeout) == 0;
 }
 
-static void tty_sgr(tty_t *tty, int code) {
-	tty_printf(tty, "%c%c%im", 0x1b, '[', code);
-}
-
 void tty_setfg(tty_t *tty, int fg) {
 	if (tty->fgcolor != fg) {
-		tty_sgr(tty, 30 + fg);
+		tty_printf(tty, "\x1b[" "%im", 30 + fg);
 		tty->fgcolor = fg;
 	}
 }
 
 void tty_setinvert(tty_t *tty) {
-	tty_sgr(tty, 7);
+	tty_fputs(tty, "\x1b[" "7m");
 }
 
 void tty_setunderline(tty_t *tty) {
-	tty_sgr(tty, 4);
+	tty_fputs(tty, "\x1b[" "4m");
+}
+
+void tty_setbold(tty_t *tty) {
+	tty_fputs(tty, "\x1b[" "1m");
 }
 
 void tty_setnormal(tty_t *tty) {
-	tty_sgr(tty, 0);
+	tty_fputs(tty, "\x1b[" "0m");
 	tty->fgcolor = 9;
 }
 
 void tty_setnowrap(tty_t *tty) {
-	tty_printf(tty, "%c%c?7l", 0x1b, '[');
+	tty_fputs(tty, "\x1b[" "?7l");
 }
 
 void tty_setwrap(tty_t *tty) {
-	tty_printf(tty, "%c%c?7h", 0x1b, '[');
+	tty_fputs(tty, "\x1b[" "?7h");
 }
 
 void tty_hidecursor(tty_t *tty) {
-  tty_printf(tty, "\x1b[" "?25l");
+	tty_fputs(tty, "\x1b[" "?25l");
 }
 
 void tty_showcursor(tty_t *tty) {
-  tty_printf(tty, "\x1b[" "?25h");
+	tty_fputs(tty, "\x1b[" "?25h");
 }
 
 void tty_newline(tty_t *tty) {
-	tty_printf(tty, "\r\n");
+	tty_fputs(tty, "\r\n");
 }
 
 void tty_clearline(tty_t *tty) {
-	tty_printf(tty, "%c%cK", 0x1b, '[');
+	tty_fputs(tty, "\x1b[" "K");
 }
 
 void tty_setcol(tty_t *tty, int col) {
-	tty_printf(tty, "%c%c%iG", 0x1b, '[', col + 1);
+	tty_printf(tty, "\x1b[" "%iG", col + 1);
 }
 
 void tty_moveup(tty_t *tty, int i) {
-	tty_printf(tty, "%c%c%iA", 0x1b, '[', i);
+	tty_printf(tty, "\x1b[" "%iA", i);
 }
 
 void tty_printf(tty_t *tty, const char *fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
-	char buf[1024];
+	char buf[4096];
 	WriteConsoleA(tty->hout, buf, vsnprintf(buf, sizeof(buf), fmt, args), 0, 0);
 	va_end(args);
 }
 
-void tty_puts(tty_t *tty, char *s) {
+void tty_fputs(tty_t *tty, const char *s) {
 	WriteConsoleA(tty->hout, s, strlen(s), 0, 0);
 }
 

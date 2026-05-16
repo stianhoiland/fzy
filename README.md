@@ -2,9 +2,33 @@
 
 A fork of the best UNIX philosophy fuzzy finder: 🔍 fzy
 
+(The master branch is currently WIP. The code and 2.0-beta release is ready, but I will do some git plumbing later which will be force pushed.)
+
 Changes:
 - Native Windows support ([#200](https://github.com/jhawthorn/fzy/pull/200))
-- Fix screen and cursor flickers ([#201](https://github.com/jhawthorn/fzy/pull/201))
+- Fix screen and cursor flickering ([#201](https://github.com/jhawthorn/fzy/pull/201))
+- Selectively enable/disable fuzzy filtering & sorting with `-o` and `-f`
+- Multiselection ([#124](https://github.com/jhawthorn/fzy/pull/124)) (thanks @gpanders!)
+  + Two Modes, `-m` & `-M`
+  + Select All (Ctrl-A)
+  + Select Down/Up (Tab & Shift-Tab, Shift-Down/Up)
+- Set initial selection with `-S STRING`
+- Add some missing keybinds
+  * Ctrl-Backspace to delete word left
+  * Ctrl-Delete to delete word right
+  * Ctrl-Left to move cursor word left
+  * Ctrl-Right to move cursor word right
+- Ignore embedded ANSI escape sequences when fuzzy filtering is off
+- "No clear" option with `-k`
+- Match-highlighting is off by default. Use `-g` to enable
+- Highlight search query itself when it will be outputted
+- Output `--help` to stdout (not stderr)
+- Option `-l` now allows lines down to 1 (was 3)
+
+Upcoming?
+~- `-exec` ([#158]()) (thanks @michael105)~
+~- Exit with backspace ([#73]()) (thanks @neuschaefer)~
+~- Various fixes ([#196](), [#197](), [#199]())~
 
 Upstream readme follows.
 

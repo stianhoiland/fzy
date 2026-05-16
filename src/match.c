@@ -11,12 +11,56 @@
 
 #include "../config.h"
 
+const char *skip_ansi(const char *s) {
+	enum {
+		S_START,
+		S_ESC, S_CSI, S_OSC, S_DCS, S_PM, S_APC, S_STT,
+	} state = S_START;
+	for (char c; (c = *s); ++s) {
+		if (state == S_START) {
+			if (c == 0x1B)
+				state = S_ESC;
+			else
+				return s;
+		} else if (state == S_ESC) {
+			if (c == '[')
+				state = S_CSI;
+			else if (c == ']')
+				state = S_OSC;
+			else if (c == 'P')
+				state = S_DCS;
+			else if (c == '^')
+				state = S_PM;
+			else if (c == '_')
+				state = S_APC;
+			else
+				state = S_START;
+		} else if (state == S_CSI) {
+			/* 'c' is final byte or not intermediary byte or not parameter byte */
+			if ((0x40 < c && c <= 0x7E) || (c < 0x20 && 0x2F <= c) || (c < 0x30 && 0x3F <= c))
+				state = S_START;
+		} else if (state == S_OSC) {
+			if (c == 0x1B)
+				state = S_STT;
+			else if (c == 0x07)
+				state = S_START;
+		} else if (state == S_DCS || state == S_PM || state == S_APC) {
+			if (c == 0x1B)
+				state = S_STT;
+		} else if (state == S_STT) {
+			if (c == '\\')
+				state = S_START;
+		}
+	}
+	return s; /* 0x00 */
+}
+
 char *strcasechr(const char *s, char c) {
 	const char accept[3] = {c, toupper(c), 0};
 	return strpbrk(s, accept);
 }
 
-int has_match(const char *needle, const char *haystack) {
+int has_match_fuzzy(const char *needle, const char *haystack) {
 	while (*needle) {
 		char nch = *needle++;
 
@@ -26,6 +70,35 @@ int has_match(const char *needle, const char *haystack) {
 		haystack++;
 	}
 	return 1;
+}
+
+int has_match_linear(const char *needle, const char *haystack) {
+	// TODO rank: 1) exact match, 2) prefix, 3) substring
+	const char *h = haystack, *n = needle;
+	for (;;) {
+		if (!*n) return 1; //haystack
+		if (!*h) return 0; //NULL
+		h = skip_ansi(h);
+		if (tolower(*h++) == tolower(*n++)) continue;
+		h = ++haystack;
+		n = needle;
+	}
+}
+
+int has_exact_linear(const char *s1, const char *s2) {
+	unsigned char c1, c2;
+	while (1) {
+		s1 = skip_ansi(s1);
+		s2 = skip_ansi(s2);
+		c1 = *s1++;
+		c2 = *s2++;
+		//fprintf(stderr, "comparing %c vs %c\n", c1, c2);
+		if (c1 != c2)
+			return c1 < c2 ? -1 : 1;
+		if (!c1)
+			break;
+	}
+	return 0;
 }
 
 #define max(a, b) (((a) > (b)) ? (a) : (b))

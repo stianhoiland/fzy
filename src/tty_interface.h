@@ -5,7 +5,7 @@
 #include "options.h"
 #include "tty.h"
 
-#ifdef __cplusplus 
+#ifdef __cplusplus
 extern "C" {
 #endif
 
