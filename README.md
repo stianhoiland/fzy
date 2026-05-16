@@ -2,7 +2,7 @@
 
 A fork of the best UNIX philosophy fuzzy finder: 🔍 fzy
 
-(The master branch is currently WIP. The code and 2.0-beta release is ready, but I will do some git plumbing later which will be force pushed.)
+(The master branch is currently WIP. The code and [2.0-beta release](https://github.com/stianhoiland/fzy/releases/tag/v2.0-beta) is ready, but I will do some git plumbing later which will be force pushed.)
 
 Changes:
 - Native Windows support ([#200](https://github.com/jhawthorn/fzy/pull/200))
@@ -26,9 +26,9 @@ Changes:
 - Option `-l` now allows lines down to 1 (was 3)
 
 Upcoming?
-~- `-exec` ([#158]()) (thanks @michael105)~
-~- Exit with backspace ([#73]()) (thanks @neuschaefer)~
-~- Various fixes ([#196](), [#197](), [#199]())~
+- ~`-exec` ([#158]()) (thanks @michael105)~
+- ~Exit with backspace ([#73]()) (thanks @neuschaefer)~
+- ~Various fixes ([#196](), [#197](), [#199]())~
 
 Upstream readme follows.
 
