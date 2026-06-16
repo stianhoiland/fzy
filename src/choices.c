@@ -107,11 +107,11 @@ static void choices_reset_search(choices_t *c) {
 	free(c->results);
 	c->results = NULL;
 	c->available = 0;
-	if (c->selection != -1) { // sticky search query selection
+	if (c->selection != SIZE_MAX) { // sticky search query selection
 		c->selection = 0;
 	}
 	if (c->search_options & SEARCH_EXACT) {
-		c->selection = -1;
+		c->selection = SIZE_MAX;
 		/* TODO This'll select the first choice if it's an exact match
 		 *      But don't have state-> here
 		if (has_exact_linear(choices_get(choices, 0), state->search) != 0) {
@@ -578,20 +578,20 @@ score_t choices_getscore(choices_t *c, size_t n) {
 
 void choices_prev(choices_t *c) {
 	if (c->available) {
-		if (c->selection >= 0) {
-			c->selection--;
-		} else {
+		if (c->selection == SIZE_MAX) {
 			c->selection = c->available - 1;
+		} else if (c->selection >= 0) {
+			c->selection--;
 		}
 	}
 }
 
 void choices_next(choices_t *c) {
 	if (c->available) {
-		if (c->selection < 0 || c->selection < c->available - 1) {
+		if (c->selection == SIZE_MAX || c->selection < c->available - 1) {
 			c->selection++;
 		} else {
-			c->selection = -1;
+			c->selection = SIZE_MAX;
 		}
 	}
 }

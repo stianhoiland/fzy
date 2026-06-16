@@ -35,7 +35,7 @@ typedef struct {
 	struct scored_result *results;
 
 	size_t available;
-	ptrdiff_t selection;
+	size_t selection;
 
 	struct {
 		const char **strings;

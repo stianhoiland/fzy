@@ -146,7 +146,7 @@ static void draw(tty_interface_t *state) {
 	state->search_selected = false;
 	if (!available && !options->enter_clears) {
 		state->search_selected = true;
-	} else if (current_selection == -1) {
+	} else if (current_selection == SIZE_MAX) {
 		state->search_selected = true;
 	} else if (available && options->exact_match) {
 		const char *selected_choice = choices_get(choices, 0);
@@ -287,7 +287,7 @@ static void action_emit(tty_interface_t *state) {
 	}
 	/* If no choices were selected with multi-select, use the choice under
 	 * the cursor */
-	if (state->search_selected || state->choices->selection == -1) {
+	if (state->search_selected || state->choices->selection == SIZE_MAX) {
 		printf("%s\n", state->search);
 	} else if (!state->choices->selections.size) {
 		const char *selection = choices_get(state->choices, state->choices->selection);
@@ -477,7 +477,7 @@ void tty_interface_init(tty_interface_t *state, tty_t *tty, choices_t *choices, 
 	update_search(state);
 
 	if (options->exact_match) {
-		state->choices->selection = -1;
+		state->choices->selection = SIZE_MAX;
 	}
 
 	//size_t len = strlen(options->preselection);
