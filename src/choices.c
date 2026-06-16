@@ -134,6 +134,8 @@ void choices_init(choices_t *c, options_t *options) {
 	c->capacity = c->size = 0;
 	choices_resize(c, INITIAL_CHOICE_CAPACITY);
 
+	c->search_options = 0;
+
 	if (options->sort_matches) {
 		c->search_options |= SEARCH_SORT;
 	}
