@@ -28,6 +28,8 @@ static const char *usage_str =
     " -M, --enter-clears       Enter selects match and clears query. Output on\n"
 	"                          empty query. Also enables -m.\n"
 	" -S, --select=STRING      Preselect first occurrence of STRING among choices\n"
+	" -x, --exact-match        Output query unless a choice is specifically\n"
+	"                          selected.\n"
     " -h, --help     Display this help and exit\n"
     " -v, --version  Output version information and exit\n";
 
@@ -59,6 +61,7 @@ static struct option longopts[] = {{"show-matches", required_argument, NULL, 'e'
 				   {"multi-select", no_argument, NULL, 'm'},
 				   {"enter-clears", no_argument, NULL, 'M'},
 				   {"select", required_argument, NULL, 'S'},
+				   {"exact-match", no_argument, NULL, 'x'},
 				   {"help", no_argument, NULL, 'h'},
 				   {NULL, 0, NULL, 0}};
 
@@ -82,13 +85,14 @@ void options_init(options_t *options) {
 	options->multi_select      = 0;
 	options->enter_clears      = 0;
 	options->preselection      = "";
+	options->exact_match       = 0;
 }
 
 void options_parse(options_t *options, int argc, char *argv[]) {
 	options_init(options);
 
 	int c;
-	while ((c = getopt_long(argc, argv, "vhs0e:q:l:t:p:j:ikofgmMS:", longopts, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "vhs0e:q:l:t:p:j:ikofgmMS:x", longopts, NULL)) != -1) {
 		switch (c) {
 			case 'v':
 				printf("%s " VERSION ", Stian's fork\n", argv[0]);
@@ -162,6 +166,9 @@ void options_parse(options_t *options, int argc, char *argv[]) {
 				break;
 			case 'S':
 				options->preselection = optarg;
+				break;
+			case 'x':
+				options->exact_match = 1;
 				break;
 			case 'h':
 				usage(argv[0]);

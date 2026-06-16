@@ -143,10 +143,24 @@ static void draw(tty_interface_t *state) {
 
 	size_t available = choices_available(choices);
 
+	state->search_selected = false;
+	if (!available && !options->enter_clears) {
+		state->search_selected = true;
+	} else if (current_selection == -1) {
+		state->search_selected = true;
+	} else if (available && options->exact_match) {
+		const char *selected_choice = choices_get(choices, 0);
+		if (has_exact_linear(selected_choice, state->search) != 0) {
+			state->search_selected = false;
+		}
+	} else {
+		state->search_selected = false;
+	}
+
 	tty_hidecursor(tty);
 	tty_setcol(tty, 0);
 	tty_fputs(tty, options->prompt);
-	if (!available && !options->enter_clears) {
+	if (state->search_selected) {
 		#ifdef TTY_SELECTION_UNDERLINE
 		tty_setunderline(tty);
 		#else
@@ -169,7 +183,8 @@ static void draw(tty_interface_t *state) {
 		tty_newline(tty);
 		const char *choice = choices_get(choices, i);
 		if (choice) {
-			draw_match(state, choice, i == choices->selection);
+			bool is_selected = (!state->search_selected && i == choices->selection);
+			draw_match(state, choice, is_selected);
 		}
 		tty_clearline(tty);
 	}
@@ -272,7 +287,9 @@ static void action_emit(tty_interface_t *state) {
 	}
 	/* If no choices were selected with multi-select, use the choice under
 	 * the cursor */
-	if (!state->choices->selections.size) {
+	if (state->search_selected || state->choices->selection == -1) {
+		printf("%s\n", state->search);
+	} else if (!state->choices->selections.size) {
 		const char *selection = choices_get(state->choices, state->choices->selection);
 		if (selection) {
 			/* output the key sequence */
@@ -458,6 +475,10 @@ void tty_interface_init(tty_interface_t *state, tty_t *tty, choices_t *choices, 
 	state->cursor = strlen(state->search);
 
 	update_search(state);
+
+	if (options->exact_match) {
+		state->choices->selection = -1;
+	}
 
 	//size_t len = strlen(options->preselection);
 

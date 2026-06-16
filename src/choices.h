@@ -14,6 +14,7 @@ extern "C" {
 typedef enum search_options {
 	SEARCH_FUZZY  = 1 << 0,
 	SEARCH_SORT   = 1 << 1,
+	SEARCH_EXACT  = 1 << 2,
 } search_options_t;
 
 struct scored_result {
@@ -34,7 +35,7 @@ typedef struct {
 	struct scored_result *results;
 
 	size_t available;
-	size_t selection;
+	ptrdiff_t selection;
 
 	struct {
 		const char **strings;

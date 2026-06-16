@@ -24,6 +24,7 @@ typedef struct {
 	int multi_select;
 	int enter_clears;
 	const char *preselection;
+	int exact_match;
 } options_t;
 
 void options_init(options_t *options);

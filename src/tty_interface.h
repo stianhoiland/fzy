@@ -19,6 +19,7 @@ typedef struct {
 	char search[SEARCH_SIZE_MAX + 1];
 	char last_search[SEARCH_SIZE_MAX + 1];
 	size_t cursor;
+	int search_selected;
 
 	int ambiguous_key_pending;
 	char input[32]; /* Pending input buffer */
