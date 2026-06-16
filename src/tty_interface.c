@@ -482,14 +482,14 @@ void tty_interface_init(tty_interface_t *state, tty_t *tty, choices_t *choices, 
 
 	//size_t len = strlen(options->preselection);
 
-	for (size_t i = 0; i < choices->available; i++) {
-		const char *choice = choices_get(choices, i);
-		//fprintf(stderr, "comparing %s vs %s\n", choice, options->preselection);
-		if (!has_exact_linear(choice, options->preselection)) {
-		//if (!strcmp(choice, options->preselection)) {
-			break;
-		} else {
-			choices_next(choices);
+	if (strlen(options->preselection) > 0) {
+		for (size_t i = 0; i < choices->available; i++) {
+			const char *choice = choices_get(choices, i);
+			if (!has_exact_linear(choice, options->preselection)) {
+				break;
+			} else {
+				choices_next(choices);
+			}
 		}
 	}
 
